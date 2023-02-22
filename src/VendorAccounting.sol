@@ -14,42 +14,39 @@ abstract contract VendorAccounting {
         bool isVendor; // Flag to make sure vendor is allowed, returns `false` if not Vendor
     }
 
-    /// The account responsible for paying vendor
+    /// The account responsible for paying vendors
     address public administrator;
     /// The accounting linked to vendor accounts
     mapping(address => Vendor) public accounts;
 
     /// Access control: only `administrator`
-    modifier onlyAdmin(address admin) {
-        require(msg.sender == admin, "Not allowed");
+    modifier onlyAdmin() {
+        require(msg.sender == administrator, "Not allowed");
         _;
     }
 
-    /// @notice Records a payment in `vendor` accounts
+    /// @notice Records a payment to `vendor` accounts, setting `balanceAccrued` to 0
     /// @param targetVendor The `vendor` that has been paid
-    /// @param amount The amount that was paid to the vendor
     function payoutVendor(address targetVendor) external onlyAdmin {
         Vendor storage vendor = accounts[targetVendor];
         /// Update the amount received and reset the balance
-        vendor.totalReceived += amount;
-        vendor.balanceAccrued = 0;
+        vendor.totalReceived += vendor.balanceAccrued;
+        emit Payment(targetVendor, vendor.balanceAccrued);
 
-        emit Payment(targetVendor, amount);
+        vendor.balanceAccrued = 0;
     }
 
     /// Intended to be overridden by custom logic in derived contract
     /// Note: place in `_afterTokenTransfer`
     function _updateAccounts(address vendor, uint256 amount) internal virtual {}
 
-    function setAdmin(address admin) public virtual {
+    /// Sets the account that makes payments to vendors
+    function setAdmin(address admin) external virtual {
         administrator = admin;
+
         emit AdminSet(admin);
     }
 
-    function setVendors(address[] calldata vendors) public virtual {
-        for (uint8 i; i < vendors.length; i++) {
-            Vendor storage vendor = accounts[vendors[i]];
-            vendor.isVendor = true;
-        }
-    }
+    /// Sets the accounts that need to be monitored
+    function setVendors(address[] calldata vendors) external virtual {}
 }
